@@ -51,16 +51,6 @@ class ProxyError(HTTPError):
         self.original_error = error
 
 
-class RemoteDisconnectedError(HTTPError):
-    "Raised by HTTPConnection.getresponse when the attempt to read the"
-    "response results in no data read from the connection, indicating that"
-    "the remote end has closed the connection."
-
-    def __init__(self, message, error, *args):
-        super(RemoteDisconnectedError, self).__init__(message, error, *args)
-        self.original_error = error
-
-
 class DecodeError(HTTPError):
     "Raised when automatic decoding based on Content-Type fails."
     pass
@@ -69,6 +59,16 @@ class DecodeError(HTTPError):
 class ProtocolError(HTTPError):
     "Raised when something unexpected happens mid-request/response."
     pass
+
+
+class RemoteDisconnectedError(ProtocolError):
+    "Raised by HTTPConnection.getresponse when the attempt to read the"
+    "response results in no data read from the connection, indicating that"
+    "the remote end has closed the connection."
+
+    def __init__(self, message, error, *args):
+        super(RemoteDisconnectedError, self).__init__(message, error, *args)
+        self.original_error = error
 
 
 #: Renamed to ProtocolError but aliased for backwards compatibility.
