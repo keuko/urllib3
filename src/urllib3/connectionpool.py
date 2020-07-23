@@ -6,6 +6,10 @@ import warnings
 
 from socket import error as SocketError, timeout as SocketTimeout
 import socket
+try:
+    from http.client import RemoteDisconnected
+except:
+    from httplib import BadStatusLine as RemoteDisconnected
 
 
 from .exceptions import (
@@ -22,6 +26,7 @@ from .exceptions import (
     TimeoutError,
     InsecureRequestWarning,
     NewConnectionError,
+    RemoteDisconnectedError,
 )
 from .packages.ssl_match_hostname import CertificateError
 from .packages import six
@@ -424,7 +429,7 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
                     # Python 3 (including for exceptions like SystemExit).
                     # Otherwise it looks like a bug in the code.
                     six.raise_from(e, None)
-        except (SocketTimeout, BaseSSLError, SocketError) as e:
+        except (SocketTimeout, BaseSSLError, SocketError, RemoteDisconnected) as e:
             self._raise_timeout(err=e, url=url, timeout_value=read_timeout)
             raise
 
@@ -712,12 +717,16 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
             BaseSSLError,
             SSLError,
             CertificateError,
+            RemoteDisconnected,
         ) as e:
             # Discard the connection for these exceptions. It will be
             # replaced during the next _get_conn() call.
             clean_exit = False
             if isinstance(e, (BaseSSLError, CertificateError)):
                 e = SSLError(e)
+            elif isinstance(e, RemoteDisconnected):
+                e = RemoteDisconnectedError("Remote end closed connection "
+                                            "without response.", e)
             elif isinstance(e, (SocketError, NewConnectionError)) and self.proxy:
                 e = ProxyError("Cannot connect to proxy.", e)
             elif isinstance(e, (SocketError, HTTPException)):
