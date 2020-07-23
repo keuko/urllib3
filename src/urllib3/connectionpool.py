@@ -9,7 +9,7 @@ import socket
 
 try:
     from http.client import RemoteDisconnected
-except:
+except ImportError:
     from httplib import BadStatusLine as RemoteDisconnected
 
 
