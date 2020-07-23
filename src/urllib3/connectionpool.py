@@ -6,6 +6,7 @@ import warnings
 
 from socket import error as SocketError, timeout as SocketTimeout
 import socket
+
 try:
     from http.client import RemoteDisconnected
 except:
@@ -725,8 +726,9 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
             if isinstance(e, (BaseSSLError, CertificateError)):
                 e = SSLError(e)
             elif isinstance(e, RemoteDisconnected):
-                e = RemoteDisconnectedError("Remote end closed connection "
-                                            "without response.", e)
+                e = RemoteDisconnectedError(
+                    "Remote end closed connection without response.", e
+                )
             elif isinstance(e, (SocketError, NewConnectionError)) and self.proxy:
                 e = ProxyError("Cannot connect to proxy.", e)
             elif isinstance(e, (SocketError, HTTPException)):
