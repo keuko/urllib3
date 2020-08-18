@@ -450,6 +450,8 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
         except RemoteDisconnected as e:
             if self._check_if_remote_disconnected(e):
                 raise RemoteDisconnectedError("Remote end closed connection without response.", e)
+            else:
+                raise ProtocolError("Bad Status Line", e)
 
         # AppEngine doesn't have a version attr.
         http_version = getattr(conn, "_http_vsn_str", "HTTP/?")
@@ -745,6 +747,8 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
             elif isinstance(e, RemoteDisconnected):
                 if self._check_if_remote_disconnected(e):
                     e = RemoteDisconnectedError("Remote end closed connection without response.", e)
+                else:
+                    e = ProtocolError("Bad status line", e)
             elif isinstance(e, (SocketError, NewConnectionError)) and self.proxy:
                 e = ProxyError("Cannot connect to proxy.", e)
             elif isinstance(e, (SocketError, HTTPException)):
