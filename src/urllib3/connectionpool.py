@@ -359,6 +359,20 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
                 self, url, "Read timed out. (read timeout=%s)" % timeout_value
             )
 
+    def _check_if_remote_disconnected(self, exception):
+        """Is the error actually caused by a remote closed connection?
+         Will return boolean true if yes"""
+
+        e = exception.__class__.__name__
+
+        if six.PY2 and e == "BadStatusLine":
+            if exception.args[0] in ("", "No status line received - the server has closed the connection"):
+                return True
+        elif six.PY3 and e == "RemoteDisconnected":
+            return True
+        return False
+
+
     def _make_request(
         self, conn, method, url, timeout=_Default, chunked=False, **httplib_request_kw
     ):
@@ -430,9 +444,12 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
                     # Python 3 (including for exceptions like SystemExit).
                     # Otherwise it looks like a bug in the code.
                     six.raise_from(e, None)
-        except (SocketTimeout, BaseSSLError, SocketError, RemoteDisconnected) as e:
+        except (SocketTimeout, BaseSSLError, SocketError) as e:
             self._raise_timeout(err=e, url=url, timeout_value=read_timeout)
             raise
+        except RemoteDisconnected as e:
+            if self._check_if_remote_disconnected(e):
+                raise RemoteDisconnectedError("Remote end closed connection without response.", e)
 
         # AppEngine doesn't have a version attr.
         http_version = getattr(conn, "_http_vsn_str", "HTTP/?")
@@ -726,9 +743,8 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
             if isinstance(e, (BaseSSLError, CertificateError)):
                 e = SSLError(e)
             elif isinstance(e, RemoteDisconnected):
-                e = RemoteDisconnectedError(
-                    "Remote end closed connection without response.", e
-                )
+                if self._check_if_remote_disconnected(e):
+                    e = RemoteDisconnectedError("Remote end closed connection without response.", e)
             elif isinstance(e, (SocketError, NewConnectionError)) and self.proxy:
                 e = ProxyError("Cannot connect to proxy.", e)
             elif isinstance(e, (SocketError, HTTPException)):
