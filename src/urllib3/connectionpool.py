@@ -366,12 +366,14 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
         e = exception.__class__.__name__
 
         if six.PY2 and e == "BadStatusLine":
-            if exception.args[0] in ("", "No status line received - the server has closed the connection"):
+            if exception.args[0] in (
+                    "",
+                    "No status line received - the server has closed the connection",
+            ):
                 return True
         elif six.PY3 and e == "RemoteDisconnected":
             return True
         return False
-
 
     def _make_request(
         self, conn, method, url, timeout=_Default, chunked=False, **httplib_request_kw
@@ -449,7 +451,9 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
             raise
         except RemoteDisconnected as e:
             if self._check_if_remote_disconnected(e):
-                raise RemoteDisconnectedError("Remote end closed connection without response.", e)
+                raise RemoteDisconnectedError(
+                    "Remote end closed connection without response.", e
+                )
             else:
                 raise ProtocolError("Bad Status Line", e)
 
@@ -746,7 +750,9 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
                 e = SSLError(e)
             elif isinstance(e, RemoteDisconnected):
                 if self._check_if_remote_disconnected(e):
-                    e = RemoteDisconnectedError("Remote end closed connection without response.", e)
+                    e = RemoteDisconnectedError(
+                        "Remote end closed connection without response.", e
+                    )
                 else:
                     e = ProtocolError("Bad status line", e)
             elif isinstance(e, (SocketError, NewConnectionError)) and self.proxy:
