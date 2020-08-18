@@ -367,8 +367,8 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
 
         if six.PY2 and e == "BadStatusLine":
             if exception.args[0] in (
-                    "",
-                    "No status line received - the server has closed the connection",
+                "",
+                "No status line received - the server has closed the connection",
             ):
                 return True
         elif six.PY3 and e == "RemoteDisconnected":
