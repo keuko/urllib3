@@ -15,7 +15,6 @@ from ._collections import HTTPHeaderDict
 from .exceptions import (
     BodyNotHttplibCompatible,
     ProtocolError,
-    RemoteDisconnectedError,
     DecodeError,
     ReadTimeoutError,
     ResponseNotChunked,

@@ -49,7 +49,6 @@ from ..exceptions import (
     HTTPWarning,
     MaxRetryError,
     ProtocolError,
-    RemoteDisconnectedError,
     TimeoutError,
     SSLError,
 )
