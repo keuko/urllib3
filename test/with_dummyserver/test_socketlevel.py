@@ -414,6 +414,71 @@ class TestSocketClosing(SocketDummyServerTestCase):
             assert response.status == 200
             assert response.data == b"Response 1"
 
+    def test_server_closed_connection_right_before_request(self):
+        # This test is simulating situation, when request is sent
+        # to server, but in same time server already closed connection.
+        #
+        # This also means that request wil never reach destination, because
+        # already closed connection. So we can be pretty sure that we can retry
+        # request.
+        #
+        # Test scenario:
+        #
+        # 1. Request should raise MaxRetryError, because max_retries=0
+        # 2. Request should pass, because max_retries=1
+        #
+        # https://bugs.python.org/issue41345
+        # https://github.com/psf/requests/issues/4664
+        # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=899406
+        # https://bugs.python.org/issue3566
+        # https://hg.python.org/cpython/rev/eba80326ba53
+        #
+        # Note from https://bugs.python.org/issue3566
+        #
+        # If the server closed the connection,
+        # by calling close() or shutdown(SHUT_WR),
+        # before receiving a short request (<= 1 MB),
+        # the "http.client" module raises a BadStatusLine exception.
+
+        done_closing = Event()
+
+        def socket_handler(listener):
+            for i in 0, 1, 2:
+                # Fail first and second time
+                if i == 0 or i == 1:
+                    sock = listener.accept()[0]
+                    sock.close()  # closing socket
+                # Retries = 1 , so third request will be processed
+                else:
+                    sock = listener.accept()[0]
+
+                    buf = b""
+                    while not buf.endswith(b"\r\n\r\n"):
+                        buf = sock.recv(65536)
+
+                    body = "Response %d" % i
+                    sock.send(
+                        (
+                            "HTTP/1.1 200 OK\r\n"
+                            "Content-Type: text/plain\r\n"
+                            "Content-Length: %d\r\n"
+                            "\r\n"
+                            "%s" % (len(body), body)
+                        ).encode("utf-8")
+                    )
+
+                    sock.close()  # simulate a server timing out, closing socket
+
+        self._start_server(socket_handler)
+        with HTTPConnectionPool(self.host, self.port) as pool:
+            with pytest.raises(MaxRetryError):
+                response = pool.request("GET", "/", retries=0)
+
+            response = pool.request("GET", "/", retries=1)
+            assert response.status == 200
+            # Retry working, got reponse = "Response 2"
+            assert response.data == b"Response 2"
+
     def test_connection_refused(self):
         # Does the pool retry if there is no listener on the port?
         host, port = get_unreachable_address()

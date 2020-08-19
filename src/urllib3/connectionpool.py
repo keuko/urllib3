@@ -359,6 +359,10 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
 
         orig_exception = err.__class__.__name__
         if six.PY2 and orig_exception == "BadStatusLine":
+            # < 2.7.16 :
+            #  err.args[0] = ""
+            # > 2.7.16
+            #  err.args[0] = "No status line received - the server has closed the connection"
             if err.args[0] in (
                 "",
                 "No status line received - the server has closed the connection",

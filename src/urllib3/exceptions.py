@@ -61,13 +61,12 @@ class ProtocolError(HTTPError):
     pass
 
 
-class RemoteDisconnectedError(ProtocolError):
-    """Raised by :meth:`HTTPConnection.getresponse` when the attempt to read
-    the response results in no data read from the connection, indicating that
-    the remote end has closed the connection.
-    """
+class RemoteDisconnectedError(HTTPError):
+    "Raised when the connection to a server fails."
 
-    pass
+    def __init__(self, message, error, *args):
+        super(RemoteDisconnectedError, self).__init__(message, error, *args)
+        self.original_error = error
 
 
 #: Renamed to ProtocolError but aliased for backwards compatibility.

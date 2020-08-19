@@ -324,7 +324,9 @@ class Retry(object):
         """
         if isinstance(err, ProxyError):
             err = err.original_error
-        return isinstance(err, (ConnectTimeoutError, RemoteDisconnectedError))
+        if isinstance(err, RemoteDisconnectedError):
+            err = err.original_error
+        return isinstance(err, ConnectTimeoutError)
 
     def _is_read_error(self, err):
         """ Errors that occur after the request has been started, so we should
