@@ -67,9 +67,7 @@ class RemoteDisconnectedError(ProtocolError):
     the remote end has closed the connection.
     """
 
-    def __init__(self, message, error, *args):
-        super(RemoteDisconnectedError, self).__init__(message, error, *args)
-        self.original_error = error
+    pass
 
 
 #: Renamed to ProtocolError but aliased for backwards compatibility.

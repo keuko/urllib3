@@ -10,11 +10,11 @@ from ..exceptions import (
     ConnectTimeoutError,
     MaxRetryError,
     ProtocolError,
+    RemoteDisconnectedError,
     ReadTimeoutError,
     ResponseError,
     InvalidHeader,
     ProxyError,
-    RemoteDisconnectedError,
 )
 from ..packages import six
 

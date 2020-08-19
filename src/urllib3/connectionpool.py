@@ -7,15 +7,11 @@ import warnings
 from socket import error as SocketError, timeout as SocketTimeout
 import socket
 
-try:
-    from http.client import RemoteDisconnected
-except ImportError:
-    from httplib import BadStatusLine as RemoteDisconnected
-
 
 from .exceptions import (
     ClosedPoolError,
     ProtocolError,
+    RemoteDisconnectedError,
     EmptyPoolError,
     HeaderParsingError,
     HostChangedError,
@@ -27,7 +23,6 @@ from .exceptions import (
     TimeoutError,
     InsecureRequestWarning,
     NewConnectionError,
-    RemoteDisconnectedError,
 )
 from .packages.ssl_match_hostname import CertificateError
 from .packages import six
@@ -359,21 +354,24 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
                 self, url, "Read timed out. (read timeout=%s)" % timeout_value
             )
 
-    def _check_if_remote_disconnected(self, exception):
-        """Is the error actually caused by a remote closed connection?
-         Will return boolean true if yes"""
+    def _check_if_raise_remote_disconnected(self, err):
+        """Is the error actually a timeout? Will raise a ReadTimeout or pass"""
 
-        e = exception.__class__.__name__
-
-        if six.PY2 and e == "BadStatusLine":
-            if exception.args[0] in (
+        orig_exception = err.__class__.__name__
+        if six.PY2 and orig_exception == "BadStatusLine":
+            if err.args[0] in (
                 "",
                 "No status line received - the server has closed the connection",
             ):
                 return True
-        elif six.PY3 and e == "RemoteDisconnected":
+            else:
+                return False
+        elif six.PY3 and orig_exception == "RemoteDisconnected":
             return True
-        return False
+        elif six.PY3 and orig_exception == "BadStatusLine":
+            return False
+        else:
+            return False
 
     def _make_request(
         self, conn, method, url, timeout=_Default, chunked=False, **httplib_request_kw
@@ -449,13 +447,6 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
         except (SocketTimeout, BaseSSLError, SocketError) as e:
             self._raise_timeout(err=e, url=url, timeout_value=read_timeout)
             raise
-        except RemoteDisconnected as e:
-            if self._check_if_remote_disconnected(e):
-                raise RemoteDisconnectedError(
-                    "Remote end closed connection without response.", e
-                )
-            else:
-                raise ProtocolError("Bad Status Line", e)
 
         # AppEngine doesn't have a version attr.
         http_version = getattr(conn, "_http_vsn_str", "HTTP/?")
@@ -738,27 +729,25 @@ class HTTPConnectionPool(ConnectionPool, RequestMethods):
             HTTPException,
             SocketError,
             ProtocolError,
+            RemoteDisconnectedError,
             BaseSSLError,
             SSLError,
             CertificateError,
-            RemoteDisconnected,
         ) as e:
             # Discard the connection for these exceptions. It will be
             # replaced during the next _get_conn() call.
             clean_exit = False
             if isinstance(e, (BaseSSLError, CertificateError)):
                 e = SSLError(e)
-            elif isinstance(e, RemoteDisconnected):
-                if self._check_if_remote_disconnected(e):
-                    e = RemoteDisconnectedError(
-                        "Remote end closed connection without response.", e
-                    )
-                else:
-                    e = ProtocolError("Bad status line", e)
             elif isinstance(e, (SocketError, NewConnectionError)) and self.proxy:
                 e = ProxyError("Cannot connect to proxy.", e)
             elif isinstance(e, (SocketError, HTTPException)):
-                e = ProtocolError("Connection aborted.", e)
+                if self._check_if_raise_remote_disconnected(e):
+                    e = RemoteDisconnectedError(
+                        "Remote end has closed the connection.", e
+                    )
+                else:
+                    e = ProtocolError("Connection aborted..", e)
 
             retries = retries.increment(
                 method, url, error=e, _pool=self, _stacktrace=sys.exc_info()[2]
